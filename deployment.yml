@@ -1,0 +1,246 @@
+# result
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: result
+  labels:
+    app: voting-app
+spec:
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  selector:
+    app: result
+  type: ClusterIP
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: result
+  labels:
+    app: voting-app
+spec:
+  to:
+    kind: Service
+    name: result
+  port:
+    targetPort: 8080
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: result
+  labels:
+    app: voting-app
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: result-s2i
+  labels:
+    app: voting-app
+spec:
+  strategy:
+    sourceStrategy:
+      from:
+        kind: DockerImage
+        name: centos/nodejs-10-centos7
+    type: Source
+  source:
+    type: Git
+    git:
+      uri: "https://github.com/Treeptik/openshift-voting-app.git"
+      ref: master
+    contextDir: voting-app/result/src
+  output:
+    to:
+      kind: ImageStreamTag
+      name: result:latest
+---
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: result
+  labels:
+    app: voting-app
+spec:
+  triggers:
+  - type: ConfigChange 
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - result
+      from:
+        kind: ImageStreamTag
+        name: result:latest
+    type: ImageChange
+  replicas: 1
+  selector:
+    app: result
+  template:
+    metadata:
+      labels:
+        app: result
+    spec:
+      securityContext:
+        runAsUser: 1001
+      containers:
+        - name: result
+
+# vote
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: vote
+  labels:
+    app: voting-app
+spec:
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  selector:
+    app: vote
+  type: ClusterIP
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: vote
+  labels:
+    app: voting-app
+spec:
+  to:
+    kind: Service
+    name: vote
+  port:
+    targetPort: 8080
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: vote
+  labels:
+    app: voting-app
+---
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: vote-s2i
+  labels:
+    app: voting-app
+spec:
+  strategy:
+    sourceStrategy:
+      from:
+        kind: DockerImage
+        name: centos/python-38-centos7
+    type: Source
+  source:
+    type: Git
+    git:
+      uri: "https://github.com/Treeptik/openshift-voting-app.git"
+      ref: master
+    contextDir: voting-app/vote/src
+  output:
+    to:
+      kind: ImageStreamTag
+      name: vote:latest
+---
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: vote
+  labels:
+    app: voting-app
+spec:
+  triggers:
+  - type: ConfigChange 
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - vote
+      from:
+        kind: ImageStreamTag
+        name: vote:latest
+    type: ImageChange
+  replicas: 1
+  selector:
+    app: vote
+  template:
+    metadata:
+      labels:
+        app: vote
+    spec:
+      securityContext:
+        runAsUser: 1001
+      containers:
+        - name: vote
+
+# worker
+--- 
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: worker
+  labels:
+    app: voting-app
+--- 
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: worker-s2i
+  labels:
+    app: voting-app
+spec:
+  strategy:
+    sourceStrategy:
+      from:
+        kind: DockerImage
+        name: fabric8/s2i-java:3.1-java8
+  source:
+    type: Git
+    git:
+      uri: "https://github.com/Treeptik/openshift-voting-app.git"
+      ref: master
+    contextDir: voting-app/worker/src
+  output:
+    to:
+      kind: ImageStreamTag
+      name: worker:latest
+---
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: worker
+  labels:
+    app: voting-app
+spec:
+  triggers:
+  - type: ConfigChange 
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - worker
+      from:
+        kind: ImageStreamTag
+        name: worker:latest
+    type: ImageChange
+  replicas: 1
+  selector:
+    app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      securityContext:
+        runAsUser: 1001
+      containers:
+        - name: worker
+          env:
+            - name: JAVA_APP_JAR
+              value: worker-jar-with-dependencies.jar
